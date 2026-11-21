@@ -15,41 +15,7 @@ import {
   X,
   CheckCircle2,
 } from "lucide-react";
-
-function parseCSV(text) {
-  const lines = text.trim().split(/\r?\n/);
-  if (lines.length < 2) return [];
-  const headers = lines[0].split(",").map((h) => h.trim());
-  return lines.slice(1).map((line) => {
-    const values = [];
-    let cur = "";
-    let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') {
-        inQuotes = !inQuotes;
-      } else if (ch === "," && !inQuotes) {
-        values.push(cur.trim());
-        cur = "";
-      } else {
-        cur += ch;
-      }
-    }
-    values.push(cur.trim());
-    const obj = {};
-    headers.forEach((h, idx) => {
-      const val = values[idx] ?? "";
-      const num = Number(val);
-      obj[h] =
-        val !== "" &&
-        !Number.isNaN(num) &&
-        !["date", "item_code", "set_code"].includes(h)
-          ? num
-          : val;
-    });
-    return obj;
-  });
-}
+import { loadDashboardData } from "./api/inventoryApi";
 
 const ACTION_META = {
   ORDER: {
@@ -218,33 +184,12 @@ export default function App() {
     async function loadData() {
       try {
         setLoading(true);
-        const [ordRes, trRes, setRes] = await Promise.all([
-          fetch("/backend_ready/ordering_recommendations.csv"),
-          fetch("/backend_ready/transfer_recommendations.csv"),
-          fetch("/backend_ready/material_set_availability.csv"),
-        ]);
+        const data = await loadDashboardData();
+        setOrders(data.orders);
+        setTransfers(data.transfers);
+        setSets(data.sets);
 
-        if (!ordRes.ok || !trRes.ok || !setRes.ok) {
-          throw new Error(
-            "Could not load CSVs from /backend_ready/. Ensure backend_ready/ is inside public/."
-          );
-        }
-
-        const [ordText, trText, setText] = await Promise.all([
-          ordRes.text(),
-          trRes.text(),
-          setRes.text(),
-        ]);
-
-        const parsedOrders = parseCSV(ordText);
-        const parsedTransfers = parseCSV(trText);
-        const parsedSets = parseCSV(setText);
-
-        setOrders(parsedOrders);
-        setTransfers(parsedTransfers);
-        setSets(parsedSets);
-
-        const uniqueDates = [...new Set(parsedOrders.map((r) => r.date))].sort();
+        const uniqueDates = [...new Set(data.orders.map((r) => r.date))].sort();
         if (uniqueDates.length > 0) {
           setSelectedDate(uniqueDates[uniqueDates.length - 1]);
         }

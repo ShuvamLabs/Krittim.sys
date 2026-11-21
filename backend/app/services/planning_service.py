@@ -13,8 +13,6 @@ from app.integrations.recommendation_engine import (
 from app.models.database_models import ContractorMovement, Godown, Item
 from app.services.stock_service import StockCalculationService
 
-DEFAULT_PLANNER_SRC = Path(r"C:\Users\VICTUS\OneDrive\Desktop\Krittim.sys\src")
-
 
 class PlanningService:
     """Builds point-in-time planning inputs strictly up to decision_date
@@ -26,7 +24,7 @@ class PlanningService:
         db: Session,
         engine: Optional[RecommendationEngineAdapter] = None,
         stock_service: Optional[StockCalculationService] = None,
-        planner_src_dir: Optional[Path] = DEFAULT_PLANNER_SRC,
+        planner_src_dir: Optional[Path] = None,
     ) -> None:
         self.db = db
         self.engine = engine or RecommendationEngineAdapter(
@@ -92,14 +90,26 @@ class PlanningService:
                     horizon_months=horizon_months,
                 )
                 rec: PlanningRecommendation = self.engine.recommend(p_in)
+                target_stock = round(
+                    avg_monthly_cons
+                    * (p_in.lead_time_days / 30.0)
+                    * (1 + self.engine.safety_buffer),
+                    4,
+                )
                 results.append(
                     {
                         "decision_date": decision_date.isoformat(),
                         "item_code": itm.item_code,
                         "godown": gdw.godown_name,
+                        "item_name": itm.item_name,
+                        "unit": itm.unit,
                         "current_stock": avail_stock,
+                        "stock": avail_stock,
                         "incoming_stock": simulated_incoming_stock,
                         "lead_time_days": p_in.lead_time_days,
+                        "rolling_monthly_consumption": p_in.recent_monthly_consumption,
+                        "target": target_stock,
+                        "lead_time_target_stock": target_stock,
                         "action": rec.action,
                         "recommended_order_qty": rec.recommended_order_qty,
                         "recommended_transfer_in": rec.recommended_transfer_in,

@@ -105,10 +105,10 @@ class RecommendationEngineAdapter:
                 if not sub.empty:
                     row = sub.iloc[-1]
                     raw_action = str(row.get("action", "HOLD")).strip().upper()
-                    # Normalize TRANSFER_IN / TRANSFER_OUT to TRANSFER if caller expects TRANSFER,
-                    # while keeping exact info in explanation
-                    action = "TRANSFER" if raw_action in ("TRANSFER_IN", "TRANSFER_OUT", "TRANSFER") else raw_action
-                    if action not in ("ORDER", "HOLD", "REDUCE", "TRANSFER", "OK"):
+                    action = raw_action
+                    if action == "REDUCE":
+                        action = "HOLD"
+                    if action not in ("ORDER", "HOLD", "TRANSFER", "TRANSFER_IN", "TRANSFER_OUT", "OK"):
                         action = "HOLD"
                     order_qty = max(0.0, float(row.get("recommended_order_qty", 0.0) or 0.0))
                     lt = max(0, int(payload.lead_time_days))
